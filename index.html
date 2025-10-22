@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>슬롯머신</title>
+<style>
+  :root{
+    --bg1:#0b1020;
+    --bg2:#25163a;
+    --neon1:#ff3d81;
+    --neon2:#00e5ff;
+    --panel:#0e0f1a;
+    --accent:#ffd166;
+  }
+  html,body{
+    height:100%;
+    margin:0;
+    font-family: "Noto Sans KR", Arial, sans-serif;
+    background: linear-gradient(135deg,var(--bg1),var(--bg2));
+    color:#fff;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  /* Slot-machine style striped background */
+  .bg-stripes {
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(45deg, rgba(255,255,255,0.01) 1px, transparent 1px);
+    background-size: 6px 6px, 40px 40px;
+    z-index:0;
+  }
+
+  .container{
+    position:relative;
+    z-index:1;
+    max-width:900px;
+    margin:40px auto;
+    padding:20px;
+    text-align:center;
+  }
+
+  h1{
+    margin:8px 0 16px;
+    font-size:28px;
+    letter-spacing:1px;
+    color:var(--accent);
+    text-shadow:0 0 12px rgba(255,209,102,0.12);
+  }
+
+  /* Slot cabinet */
+  .machine {
+    margin:0 auto;
+    width:640px;
+    max-width:95%;
+    background: linear-gradient(180deg,#1b1228,#0f0b14);
+    border-radius:16px;
+    padding:22px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6), 0 0 30px rgba(0,0,0,0.4) inset;
+    border:4px solid rgba(255,255,255,0.03);
+  }
+
+  .reels {
+    display:flex;
+    justify-content:space-between;
+    gap:18px;
+    padding:20px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+    border-radius:12px;
+  }
+
+  .reel {
+    flex:1;
+    background:linear-gradient(180deg,#0e1420,#061018);
+    border-radius:10px;
+    padding:16px;
+    height:160px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:48px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+    color:#fff;
+    letter-spacing:6px;
+    user-select:none;
+  }
+
+  .controls{
+    margin-top:18px;
+    display:flex;
+    gap:10px;
+    justify-content:center;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+
+  button {
+    padding:10px 16px;
+    border-radius:8px;
+    border:0;
+    background:linear-gradient(90deg,var(--neon1),var(--neon2));
+    color:#081225;
+    font-weight:700;
+    cursor:pointer;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+  }
+
+  button.secondary{
+    background:linear-gradient(90deg,#44485a,#2a2e3a);
+    color:#fff;
+  }
+
+  .status{
+    color:#ddd;
+    font-size:14px;
+    margin-left:8px;
+  }
+
+  .play-count{
+    margin-top:12px;
+    color:#ffd;
+  }
+
+  /* modal overlay */
+  .overlay {
+    position:fixed;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(180deg, rgba(0,0,0,0.6), rgba(0,0,0,0.75));
+    z-index:10;
+  }
+  .overlay.active{ display:flex; }
+
+  .modal {
+    width:380px;
+    max-width:90%;
+    background:linear-gradient(180deg,#111018,#171423);
+    border-radius:12px;
+    padding:18px;
+    text-align:center;
+    box-shadow:0 12px 40px rgba(0,0,0,0.7);
+    border:1px solid rgba(255,255,255,0.03);
+  }
+
+  .modal h2{ margin:0 0 8px; color:#ffb3b3; }
+  .modal p{ margin:0 0 12px; color:#ffdede; font-size:14px; }
+
+  input[type="password"]{
+    width:100%;
+    padding:10px;
+    border-radius:8px;
+    border:0;
+    margin-bottom:10px;
+    box-sizing:border-box;
+    font-size:16px;
+  }
+
+  .note{
+    margin-top:10px;
+    font-size:12px;
+    color:#cfcfcf;
+  }
+
+  footer{
+    margin-top:18px;
+    font-size:13px;
+    color:#cfcfcf;
+  }
+
+  /* small screens tweak */
+  @media (max-width:640px){
+    .reel{ font-size:36px; height:120px; }
+    .machine{ padding:14px; }
+  }
+</style>
+</head>
+<body>
+  <div class="bg-stripes"></div>
+
+  <div class="container">
+    <h1>슬롯머신</h1>
+
+    <div class="machine" role="application" aria-label="slot machine">
+      <div class="reels" id="reels">
+        <div class="reel" id="r1">🍒</div>
+        <div class="reel" id="r2">🍋</div>
+        <div class="reel" id="r3">🍊</div>
+      </div>
+
+      <div class="controls">
+        <button id="connectBtn">Arduino 연결</button>
+        <button id="spinBtn">Spin</button>
+        <button id="unlockBtn" class="secondary" style="display:none">잠금 해제</button>
+        <div class="status" id="status">상태: 미연결</div>
+      </div>
+
+      <div class="play-count" id="playCount">플레이 횟수: 0</div>
+
+    </div>
+  </div>
+
+  <!-- modal: 경고 + 비밀번호 -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2>도박은 위험합니다</h2>
+      <p>3번 플레이하셨습니다. 계속하려면 비밀번호를 입력하세요.</p>
+      <input id="pwdInput" type="password" placeholder="비밀번호 입력" />
+      <div style="display:flex; gap:8px;">
+        <button id="pwdOk">확인</button>
+        <button id="pwdCancel" class="secondary">취소</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/*
+  slot.html
+  - Web Serial API로 아두이노와 통신 (읽기 전용 예)
+  - 아두이노가 "pressed" 라인을 전송하면 startSlotMachine() 호출
+  - 3번 플레이 이후 잠금 -> 비밀번호 입력 필요
+  - 기본 패스워드: 1234 (아래 PASSWORD 변수 수정해서 바꿀 것)
+*/
+
+/* ========== 설정 ========== */
+const BAUD_RATE = 9600;
+const PASSWORD = "1336"; // <--- 여기서 비밀번호 변경하세요
+const MAX_PLAYS_BEFORE_LOCK = 3;
+
+/* ========== UI 요소 ========== */
+const connectBtn = document.getElementById('connectBtn');
+const spinBtn = document.getElementById('spinBtn');
+const unlockBtn = document.getElementById('unlockBtn');
+const statusEl = document.getElementById('status');
+const playCountEl = document.getElementById('playCount');
+const overlay = document.getElementById('overlay');
+const pwdInput = document.getElementById('pwdInput');
+const pwdOk = document.getElementById('pwdOk');
+const pwdCancel = document.getElementById('pwdCancel');
+
+const reels = [
+  document.getElementById('r1'),
+  document.getElementById('r2'),
+  document.getElementById('r3')
+];
+
+let playCount = 0;
+let locked = false;
+
+/* ========== Serial 관련 변수 ========== */
+let port = null;
+let reader = null;
+let keepReading = false;
+
+/* ========== 슬롯머신 심볼 & 로직 ========== */
+const SYMBOLS = ["🍒","🍋","🍊","🍉","⭐","🔔","7️⃣","🍇"];
+
+function randSymbol(){ return SYMBOLS[Math.floor(Math.random()*SYMBOLS.length)]; }
+
+function updatePlayCount(){
+  playCountEl.textContent = `플레이 횟수: ${playCount}`;
+  if(playCount >= MAX_PLAYS_BEFORE_LOCK){
+    locked = true;
+    unlockBtn.style.display = 'inline-block';
+  }
+}
+
+/* 슬롯 애니메이션: 각 릴을 일정 시간 랜덤으로 바꾼 뒤 정지 */
+function startSlotMachine(){
+  if(locked){
+    // 락 상태면 오버레이 띄우기
+    showLockModal();
+    return;
+  }
+
+  // Disable buttons briefly to prevent 중복 호출
+  spinBtn.disabled = true;
+  connectBtn.disabled = true;
+
+  // spin animation
+  const durations = [900, 1200, 1500]; // 각 릴의 회전 시간 (ms)
+  const intervals = [];
+
+  for(let i=0;i<3;i++){
+    let t = 0;
+    intervals[i] = setInterval(()=>{
+      reels[i].textContent = randSymbol();
+      t += 80;
+    }, 80);
+  }
+
+  // 정지 타이머 설정
+  for(let i=0;i<3;i++){
+    setTimeout(()=>{
+      clearInterval(intervals[i]);
+      // 최종 심볼 랜덤 지정
+      reels[i].textContent = randSymbol();
+      // 마지막 릴이면 풀기
+      if(i===2){
+        spinBtn.disabled = false;
+        connectBtn.disabled = false;
+        playCount++;
+        updatePlayCount();
+        if(locked) showLockModal();
+      }
+    }, durations[i]);
+  }
+}
+
+/* ========== Lock modal control ========== */
+function showLockModal(){
+  overlay.classList.add('active');
+  pwdInput.value = '';
+  pwdInput.focus();
+}
+
+function hideLockModal(){
+  overlay.classList.remove('active');
+}
+
+/* unlock flow */
+pwdOk.addEventListener('click', ()=>{
+  const v = pwdInput.value;
+  if(v === PASSWORD){
+    // unlock: reset playCount and locked
+    playCount = 0;
+    locked = false;
+    updatePlayCount();
+    hideLockModal();
+    alert('잠금 해제되었습니다. 안전한 이용 부탁드립니다.');
+  } else {
+    alert('비밀번호가 틀렸습니다.');
+  }
+});
+
+pwdCancel.addEventListener('click', ()=>{
+  hideLockModal();
+});
+
+/* unlockBtn (화면의 잠금해제 버튼) */
+unlockBtn.addEventListener('click', showLockModal);
+
+/* ========== Web Serial API 연결 ========== */
+async function connectSerial(){
+  if(!('serial' in navigator)){
+    statusEl.textContent = '상태: Web Serial API를 지원하지 않는 브라우저입니다.';
+    return;
+  }
+
+  try {
+    // 포트 요청
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: BAUD_RATE });
+    statusEl.textContent = `상태: 연결됨 (baud ${BAUD_RATE})`;
+    connectBtn.textContent = '연결 해제';
+    keepReading = true;
+
+    // TextDecoderStream으로 읽기
+    const decoder = new TextDecoderStream();
+    port.readable.pipeTo(decoder.writable);
+    reader = decoder.readable.getReader();
+
+    readLoop();
+  } catch (err) {
+    console.error('시리얼 연결 실패:', err);
+    statusEl.textContent = '상태: 연결 실패';
+  }
+}
+
+async function disconnectSerial(){
+  keepReading = false;
+  try {
+    if(reader){
+      await reader.cancel();
+      reader.releaseLock();
+      reader = null;
+    }
+    if(port){
+      await port.close();
+      port = null;
+    }
+    statusEl.textContent = '상태: 연결 해제됨';
+    connectBtn.textContent = 'Arduino 연결';
+  } catch(err){
+    console.error('연결 해제 중 오류:', err);
+  }
+}
+
+async function readLoop(){
+  try {
+    while(keepReading && reader){
+      const { value, done } = await reader.read();
+      if(done) break;
+      if(value){
+        // value는 시리얼로 들어온 텍스트 (줄바꿈 포함 가능)
+        console.log('recv:', value);
+        // 간단 파싱: "pressed" 포함되면 스핀
+        const cleanValue = value.trim().toLowerCase();
+        if(cleanValue == "1"){
+          console.log("아두이노 신호 감지됨 → 슬롯머신 작동");
+          setTimeout(() => {
+            startSlotMachine();
+          }, 0); 
+          
+        }
+      }
+    }
+  } catch(err){
+    console.error('readLoop error:', err);
+    statusEl.textContent = '상태: 읽기 오류';
+  }
+}
+
+/* connectBtn 토글 */
+connectBtn.addEventListener('click', async ()=>{
+  if(port){
+    await disconnectSerial();
+  } else {
+    await connectSerial();
+  }
+});
+
+/* spin test button (개발/테스트용) */
+spinBtn.addEventListener('click', ()=>{
+  startSlotMachine();
+});
+
+/* init */
+updatePlayCount();
+
+/* 안전 메세지: 페이지를 바로 닫지 못하게 하는 간단한 안내 */
+window.addEventListener('beforeunload', (e) => {
+  // 사용자 확인 대화상자 노출은 브라우저 정책에 따라 다름
+  // e.preventDefault();
+});
+</script>
+</body>
+</html>
